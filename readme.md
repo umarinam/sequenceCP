@@ -1,0 +1,1 @@
+Create an html file with embedded javascript and css that allow 2 players play Sequence game. Use card images from any online source. Use peerjs to support 2 player game over same wifi.

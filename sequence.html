@@ -1,0 +1,1307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="dark" />
+  <title>Sequence — 2 Player PeerJS</title>
+  <style>
+    :root {
+      --bg: #07160f;
+      --panel: rgba(13, 38, 27, 0.93);
+      --panel-2: rgba(21, 55, 40, 0.92);
+      --line: rgba(255,255,255,.13);
+      --text: #f3f8f5;
+      --muted: #aec1b5;
+      --gold: #f4c95d;
+      --blue: #35a7ff;
+      --red: #ff5a67;
+      --green: #37d67a;
+      --danger: #ff727c;
+      --card-w: clamp(31px, 7.2vw, 68px);
+      --radius: 18px;
+      --shadow: 0 18px 55px rgba(0,0,0,.35);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body { min-height: 100%; }
+
+    body {
+      margin: 0;
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at 15% 10%, rgba(50, 180, 115, .18), transparent 30rem),
+        radial-gradient(circle at 90% 20%, rgba(53, 167, 255, .12), transparent 28rem),
+        linear-gradient(135deg, #06110c, #0a2418 55%, #07130e);
+      padding: max(14px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+    }
+
+    button, input { font: inherit; }
+    button { color: inherit; }
+
+    .app {
+      width: min(1500px, 100%);
+      margin: 0 auto;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+
+    .brand { display: flex; align-items: center; gap: 12px; }
+
+    .brand-mark {
+      width: 48px;
+      height: 48px;
+      border-radius: 15px;
+      display: grid;
+      place-items: center;
+      font-size: 25px;
+      background: linear-gradient(145deg, #207f50, #11452f);
+      border: 1px solid rgba(255,255,255,.2);
+      box-shadow: var(--shadow);
+    }
+
+    h1 { font-size: clamp(1.35rem, 3vw, 2rem); line-height: 1; margin: 0; }
+    .subtitle { color: var(--muted); margin-top: 5px; font-size: .9rem; }
+
+    .connection-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border: 1px solid var(--line);
+      background: rgba(0,0,0,.2);
+      border-radius: 999px;
+      font-size: .86rem;
+      white-space: nowrap;
+    }
+
+    .dot { width: 9px; height: 9px; border-radius: 50%; background: #7f8c85; box-shadow: 0 0 0 4px rgba(127,140,133,.12); }
+    .dot.online { background: var(--green); box-shadow: 0 0 0 4px rgba(55,214,122,.14); }
+    .dot.waiting { background: var(--gold); box-shadow: 0 0 0 4px rgba(244,201,93,.14); }
+    .dot.error { background: var(--danger); box-shadow: 0 0 0 4px rgba(255,114,124,.14); }
+
+    .panel {
+      background: linear-gradient(180deg, rgba(19,55,39,.96), rgba(9,29,20,.96));
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .lobby {
+      max-width: 830px;
+      margin: 7vh auto 0;
+      padding: clamp(20px, 4vw, 38px);
+    }
+
+    .lobby h2 { margin: 0 0 8px; font-size: clamp(1.45rem, 4vw, 2.2rem); }
+    .lobby-copy { margin: 0 0 22px; color: var(--muted); line-height: 1.55; }
+
+    .lobby-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+    }
+
+    .lobby-card {
+      background: rgba(255,255,255,.045);
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      padding: 18px;
+    }
+
+    .lobby-card h3 { margin: 0 0 7px; }
+    .lobby-card p { color: var(--muted); min-height: 42px; font-size: .91rem; line-height: 1.45; }
+
+    label { display: block; color: var(--muted); font-size: .8rem; margin: 12px 0 6px; }
+
+    input {
+      width: 100%;
+      color: var(--text);
+      background: #071b12;
+      border: 1px solid rgba(255,255,255,.17);
+      border-radius: 11px;
+      padding: 12px 13px;
+      outline: none;
+    }
+
+    input:focus { border-color: rgba(244,201,93,.85); box-shadow: 0 0 0 3px rgba(244,201,93,.12); }
+
+    .btn {
+      border: 1px solid rgba(255,255,255,.18);
+      background: linear-gradient(180deg, #257b51, #155239);
+      border-radius: 11px;
+      padding: 11px 15px;
+      cursor: pointer;
+      font-weight: 750;
+      transition: transform .15s ease, filter .15s ease, opacity .15s ease;
+    }
+
+    .btn:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.08); }
+    .btn:active:not(:disabled) { transform: translateY(0); }
+    .btn:disabled { opacity: .48; cursor: not-allowed; }
+    .btn.primary { width: 100%; margin-top: 13px; background: linear-gradient(180deg, #e2b945, #a9780b); color: #1d1603; border-color: rgba(255,225,130,.55); }
+    .btn.secondary { background: rgba(255,255,255,.075); }
+    .btn.danger { background: rgba(255,90,103,.16); border-color: rgba(255,90,103,.35); }
+    .btn.small { padding: 8px 11px; font-size: .83rem; }
+
+    .lobby-note {
+      margin-top: 18px;
+      padding: 13px 15px;
+      border-left: 3px solid var(--gold);
+      background: rgba(244,201,93,.08);
+      color: #d8e0db;
+      border-radius: 8px;
+      font-size: .88rem;
+      line-height: 1.5;
+    }
+
+    #gameView[hidden], #lobbyView[hidden] { display: none !important; }
+
+    .game-shell { display: grid; gap: 12px; }
+
+    .game-toolbar {
+      display: grid;
+      grid-template-columns: minmax(180px, 1fr) auto minmax(180px, 1fr);
+      align-items: center;
+      gap: 12px;
+      padding: 11px 14px;
+    }
+
+    .room-area { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+    .room-label { color: var(--muted); font-size: .8rem; }
+    .room-code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: .8rem; max-width: 235px; overflow: hidden; text-overflow: ellipsis; }
+
+    .turn-banner {
+      min-width: 230px;
+      text-align: center;
+      padding: 9px 15px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.07);
+      border: 1px solid var(--line);
+      font-weight: 800;
+    }
+
+    .turn-banner.yours { color: #0c2618; background: linear-gradient(180deg, #65e99a, #35b96f); border-color: rgba(180,255,207,.55); }
+    .turn-banner.winner { color: #241a00; background: linear-gradient(180deg, #ffe18a, #d7a728); }
+
+    .toolbar-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+    .scorebar {
+      display: grid;
+      grid-template-columns: 1fr minmax(145px, auto) 1fr;
+      gap: 10px;
+      align-items: stretch;
+    }
+
+    .player-card, .deck-card {
+      padding: 11px 14px;
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      min-width: 0;
+    }
+
+    .player-card.right { justify-content: flex-end; text-align: right; }
+    .chip-icon { width: 28px; height: 28px; border-radius: 50%; border: 3px solid rgba(255,255,255,.8); flex: 0 0 auto; box-shadow: inset 0 0 0 4px rgba(0,0,0,.14), 0 3px 9px rgba(0,0,0,.35); }
+    .chip-icon.blue { background: var(--blue); }
+    .chip-icon.red { background: var(--red); }
+    .player-name { font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .player-meta { color: var(--muted); font-size: .82rem; }
+    .deck-card { justify-content: center; text-align: center; }
+    .deck-main { font-weight: 850; }
+
+    .play-area {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(210px, 280px);
+      gap: 12px;
+      align-items: start;
+    }
+
+    .board-panel {
+      padding: clamp(7px, 1.2vw, 13px);
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .board {
+      width: max-content;
+      margin: auto;
+      display: grid;
+      grid-template-columns: repeat(10, var(--card-w));
+      grid-auto-rows: calc(var(--card-w) * 1.38);
+      gap: clamp(2px, .35vw, 5px);
+      padding: clamp(5px, .8vw, 10px);
+      border-radius: 16px;
+      background:
+        radial-gradient(circle at 50% 30%, rgba(69,190,119,.16), transparent 40%),
+        linear-gradient(145deg, #0e4b31, #092e20);
+      border: 1px solid rgba(255,255,255,.16);
+      box-shadow: inset 0 0 40px rgba(0,0,0,.32);
+    }
+
+    .board-cell {
+      position: relative;
+      border: 0;
+      padding: 0;
+      border-radius: clamp(3px, .55vw, 7px);
+      overflow: hidden;
+      background: #f5f1e9;
+      cursor: default;
+      isolation: isolate;
+      box-shadow: 0 2px 6px rgba(0,0,0,.28);
+    }
+
+    .board-cell img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .board-cell .card-fallback { height: 100%; color: #111; background: #fff; display: none; place-items: center; font-weight: 900; font-size: clamp(.58rem, 1.7vw, 1rem); }
+    .board-cell.red-card .card-fallback { color: #c52432; }
+
+    .board-cell.free {
+      display: grid;
+      place-items: center;
+      color: #fff5ca;
+      background:
+        radial-gradient(circle, rgba(255,255,255,.18) 0 2px, transparent 3px) 0 0 / 11px 11px,
+        linear-gradient(145deg, #b18b25, #5f4310);
+      font-size: clamp(.55rem, 1.55vw, .95rem);
+      font-weight: 900;
+      text-align: center;
+      line-height: 1.1;
+      text-shadow: 0 2px 4px rgba(0,0,0,.45);
+    }
+
+    .board-cell.legal {
+      cursor: pointer;
+      animation: legalPulse 1.25s infinite ease-in-out;
+      outline: 4px solid rgba(244,201,93,.95);
+      outline-offset: -4px;
+      z-index: 2;
+    }
+
+    .board-cell.legal::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: rgba(244,201,93,.24);
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    @keyframes legalPulse {
+      0%, 100% { filter: brightness(1); }
+      50% { filter: brightness(1.22); }
+    }
+
+    .placed-chip {
+      position: absolute;
+      z-index: 4;
+      width: 72%;
+      aspect-ratio: 1;
+      left: 14%;
+      top: 50%;
+      transform: translateY(-50%);
+      border-radius: 50%;
+      border: clamp(2px, .4vw, 4px) solid rgba(255,255,255,.88);
+      box-shadow: inset 0 0 0 clamp(3px, .55vw, 7px) rgba(0,0,0,.16), 0 5px 12px rgba(0,0,0,.46);
+      display: grid;
+      place-items: center;
+      font-size: clamp(.55rem, 1.5vw, .92rem);
+      font-weight: 950;
+      color: white;
+      text-shadow: 0 1px 3px #000;
+    }
+
+    .placed-chip.p0 { background: radial-gradient(circle at 35% 28%, #87d4ff, var(--blue) 48%, #0869b7); }
+    .placed-chip.p1 { background: radial-gradient(circle at 35% 28%, #ffadb3, var(--red) 48%, #bc1f2c); }
+    .placed-chip.locked::after {
+      content: "🔒";
+      position: absolute;
+      right: -8%;
+      bottom: -9%;
+      display: grid;
+      place-items: center;
+      width: 42%;
+      aspect-ratio: 1;
+      border-radius: 50%;
+      background: #183125;
+      border: 1px solid rgba(255,255,255,.7);
+      font-size: .65em;
+      text-shadow: none;
+    }
+
+    .side-panel { display: grid; gap: 12px; }
+    .side-box { padding: 15px; }
+    .side-box h3 { margin: 0 0 8px; font-size: 1rem; }
+    .side-box p { margin: 0; color: var(--muted); font-size: .86rem; line-height: 1.48; }
+    .last-action { min-height: 44px; }
+    .rules-list { margin: 8px 0 0; padding-left: 19px; color: var(--muted); font-size: .84rem; line-height: 1.48; }
+    .rules-list strong { color: var(--text); }
+
+    .hand-panel { padding: 12px; }
+    .hand-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+    .hand-title { font-weight: 850; }
+    .hand-help { color: var(--muted); font-size: .82rem; }
+    .hand-actions { display: flex; gap: 8px; }
+
+    .hand {
+      display: flex;
+      justify-content: center;
+      align-items: flex-end;
+      gap: clamp(5px, 1.1vw, 11px);
+      overflow-x: auto;
+      padding: 7px 3px 12px;
+      min-height: 142px;
+    }
+
+    .hand-card {
+      position: relative;
+      flex: 0 0 auto;
+      width: clamp(70px, 10vw, 105px);
+      aspect-ratio: 2.5 / 3.5;
+      border: 0;
+      padding: 0;
+      border-radius: 9px;
+      overflow: hidden;
+      background: white;
+      cursor: pointer;
+      box-shadow: 0 8px 18px rgba(0,0,0,.34);
+      transition: transform .16s ease, box-shadow .16s ease, opacity .16s ease;
+    }
+
+    .hand-card:hover:not(:disabled) { transform: translateY(-6px); }
+    .hand-card.selected { transform: translateY(-10px); box-shadow: 0 0 0 4px var(--gold), 0 12px 24px rgba(0,0,0,.43); }
+    .hand-card:disabled { cursor: not-allowed; opacity: .62; }
+    .hand-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .hand-card .card-fallback { height: 100%; color: #111; background: #fff; display: none; place-items: center; font-size: 1.4rem; font-weight: 950; }
+    .hand-card.red-card .card-fallback { color: #c52432; }
+
+    .jack-badge {
+      position: absolute;
+      left: 6px;
+      right: 6px;
+      bottom: 6px;
+      z-index: 2;
+      padding: 4px 5px;
+      border-radius: 7px;
+      color: #fff;
+      background: rgba(0,0,0,.72);
+      font-size: clamp(.55rem, 1.3vw, .7rem);
+      text-align: center;
+      font-weight: 850;
+      backdrop-filter: blur(4px);
+    }
+
+    .empty-hand { color: var(--muted); align-self: center; }
+
+    .toast-stack {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      z-index: 50;
+      display: grid;
+      gap: 8px;
+      pointer-events: none;
+    }
+
+    .toast {
+      max-width: min(380px, calc(100vw - 36px));
+      background: #102c1f;
+      border: 1px solid rgba(255,255,255,.19);
+      border-left: 4px solid var(--gold);
+      border-radius: 10px;
+      padding: 11px 13px;
+      box-shadow: var(--shadow);
+      animation: toastIn .2s ease;
+      font-size: .88rem;
+    }
+
+    .toast.error { border-left-color: var(--danger); }
+    @keyframes toastIn { from { transform: translateY(8px); opacity: 0; } }
+
+    .footer-note { color: #8fa498; text-align: center; font-size: .76rem; line-height: 1.5; margin-top: 13px; }
+    .footer-note a { color: #c8d9cf; }
+
+    @media (max-width: 980px) {
+      .play-area { grid-template-columns: 1fr; }
+      .side-panel { grid-template-columns: 1fr 1fr; }
+    }
+
+    @media (max-width: 720px) {
+      header { align-items: flex-start; }
+      .subtitle { display: none; }
+      .brand-mark { width: 42px; height: 42px; }
+      .lobby-grid { grid-template-columns: 1fr; }
+      .lobby-card p { min-height: 0; }
+      .game-toolbar { grid-template-columns: 1fr; text-align: center; }
+      .room-area, .toolbar-actions { justify-content: center; }
+      .turn-banner { min-width: 0; }
+      .scorebar { grid-template-columns: 1fr 1fr; }
+      .deck-card { grid-column: 1 / -1; grid-row: 2; }
+      .side-panel { grid-template-columns: 1fr; }
+      .hand { justify-content: flex-start; }
+      .connection-pill { font-size: 0; padding: 9px; }
+      .connection-pill .dot { margin: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="brand">
+        <div class="brand-mark">♠</div>
+        <div>
+          <h1>Sequence</h1>
+          <div class="subtitle">Two-player, browser-to-browser game powered by PeerJS</div>
+        </div>
+      </div>
+      <div class="connection-pill" title="Connection status">
+        <span id="connectionDot" class="dot"></span>
+        <span id="connectionText">Not connected</span>
+      </div>
+    </header>
+
+    <main>
+      <section id="lobbyView" class="lobby panel">
+        <h2>Play on two devices</h2>
+        <p class="lobby-copy">One player creates a room and shares its code. The second player opens this same file, enters the code, and joins. The host controls the official game state and validates every move.</p>
+
+        <label for="playerName">Your display name</label>
+        <input id="playerName" maxlength="24" value="Player" autocomplete="nickname" />
+
+        <div class="lobby-grid">
+          <div class="lobby-card">
+            <h3>Create a room</h3>
+            <p>Start PeerJS and wait for one opponent to connect.</p>
+            <button id="hostButton" class="btn primary">Create room</button>
+          </div>
+          <div class="lobby-card">
+            <h3>Join a room</h3>
+            <p>Paste the room code shown on the host’s device.</p>
+            <label for="joinCode">Room code</label>
+            <input id="joinCode" placeholder="Paste PeerJS room code" autocomplete="off" autocapitalize="none" spellcheck="false" />
+            <button id="joinButton" class="btn primary">Join room</button>
+          </div>
+        </div>
+
+        <div class="lobby-note">
+          PeerJS uses its cloud server only to introduce the two browsers; gameplay data is then sent over WebRTC. Both devices need internet access to load PeerJS and the card images. For best results, serve this file over local HTTP rather than opening it directly as <code>file://</code>.
+        </div>
+      </section>
+
+      <section id="gameView" class="game-shell" hidden>
+        <div class="game-toolbar panel">
+          <div class="room-area">
+            <span class="room-label">Room</span>
+            <span id="roomCode" class="room-code">—</span>
+            <button id="copyRoomButton" class="btn secondary small">Copy</button>
+          </div>
+          <div id="turnBanner" class="turn-banner">Preparing game…</div>
+          <div class="toolbar-actions">
+            <button id="newGameButton" class="btn secondary small" hidden>New game</button>
+            <button id="leaveButton" class="btn danger small">Leave</button>
+          </div>
+        </div>
+
+        <div class="scorebar">
+          <div id="player0Card" class="player-card panel">
+            <span class="chip-icon blue"></span>
+            <div>
+              <div id="player0Name" class="player-name">Player 1</div>
+              <div id="player0Meta" class="player-meta">0 of 2 sequences</div>
+            </div>
+          </div>
+          <div class="deck-card panel">
+            <div>
+              <div id="deckMain" class="deck-main">Deck: —</div>
+              <div id="discardText" class="player-meta">Discard: —</div>
+            </div>
+          </div>
+          <div id="player1Card" class="player-card right panel">
+            <div>
+              <div id="player1Name" class="player-name">Player 2</div>
+              <div id="player1Meta" class="player-meta">0 of 2 sequences</div>
+            </div>
+            <span class="chip-icon red"></span>
+          </div>
+        </div>
+
+        <div class="play-area">
+          <div class="board-panel panel">
+            <div id="board" class="board" aria-label="Sequence board"></div>
+          </div>
+
+          <aside class="side-panel">
+            <section class="side-box panel">
+              <h3>Selected card</h3>
+              <p id="selectedCardText">Select a card from your hand.</p>
+              <button id="deadCardButton" class="btn secondary" style="width:100%; margin-top:12px" hidden>Exchange dead card</button>
+            </section>
+            <section class="side-box panel">
+              <h3>Last move</h3>
+              <p id="lastAction" class="last-action">Waiting for the game to start.</p>
+            </section>
+            <section class="side-box panel">
+              <h3>Quick rules</h3>
+              <ul class="rules-list">
+                <li>Make <strong>two lines of five</strong> chips.</li>
+                <li><strong>J♣ / J♦:</strong> place on any open card.</li>
+                <li><strong>J♥ / J♠:</strong> remove an unlocked enemy chip.</li>
+                <li>Four corner spaces are free for both players.</li>
+                <li>Chips in a completed sequence are locked.</li>
+              </ul>
+            </section>
+          </aside>
+        </div>
+
+        <section class="hand-panel panel">
+          <div class="hand-top">
+            <div>
+              <div class="hand-title">Your hand</div>
+              <div id="handHelp" class="hand-help">Select a card, then choose a highlighted board space.</div>
+            </div>
+            <div class="hand-actions"></div>
+          </div>
+          <div id="hand" class="hand"></div>
+        </section>
+      </section>
+    </main>
+
+    <div class="footer-note">
+      Card images are loaded from <a href="https://deckofcardsapi.com/" target="_blank" rel="noopener">Deck of Cards API</a>. Peer connection uses <a href="https://peerjs.com/" target="_blank" rel="noopener">PeerJS</a>. This is an independent browser implementation for personal play.
+    </div>
+  </div>
+
+  <div id="toastStack" class="toast-stack" aria-live="polite"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.5/peerjs.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script>
+    "use strict";
+
+    // ---------- Constants and standard board ----------
+    const CARD_IMAGE_ROOT = "https://deckofcardsapi.com/static/img/";
+    const SUITS = ["S", "H", "D", "C"];
+    const RANKS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+    const CORNERS = new Set([0, 9, 90, 99]);
+    const TARGET_SEQUENCES = 2;
+    const HAND_SIZE = 7;
+
+    // Jacks do not appear on the board. Every other card appears twice.
+    // This is the familiar 10x10 Sequence layout; the four corners are free.
+    const BOARD_LAYOUT = [
+      ["FREE", "2S", "3S", "4S", "5S", "6S", "7S", "8S", "9S", "FREE"],
+      ["6C", "7C", "8C", "9C", "10C", "QC", "KC", "AC", "AD", "10S"],
+      ["5C", "4C", "3C", "2C", "AH", "KH", "QH", "10H", "KD", "AS"],
+      ["4D", "5D", "6D", "7D", "8D", "9D", "10D", "QD", "KS", "2D"],
+      ["3D", "2D", "AS", "KS", "QS", "10S", "9S", "8S", "QS", "2H"],
+      ["4H", "5H", "6H", "7H", "8H", "9H", "10H", "QH", "KH", "3H"],
+      ["3S", "2H", "AH", "AC", "KC", "QC", "10C", "9C", "8C", "4S"],
+      ["2S", "3H", "4H", "5H", "6H", "7H", "8H", "9H", "7C", "5S"],
+      ["AD", "KD", "QD", "10D", "9D", "8D", "7D", "6D", "6C", "6S"],
+      ["FREE", "5C", "4C", "3C", "2C", "4D", "5D", "7S", "3D", "FREE"]
+    ].flat();
+
+    // ---------- DOM ----------
+    const $ = (id) => document.getElementById(id);
+    const lobbyView = $("lobbyView");
+    const gameView = $("gameView");
+    const playerNameInput = $("playerName");
+    const joinCodeInput = $("joinCode");
+    const hostButton = $("hostButton");
+    const joinButton = $("joinButton");
+    const connectionDot = $("connectionDot");
+    const connectionText = $("connectionText");
+    const roomCodeEl = $("roomCode");
+    const copyRoomButton = $("copyRoomButton");
+    const newGameButton = $("newGameButton");
+    const leaveButton = $("leaveButton");
+    const turnBanner = $("turnBanner");
+    const boardEl = $("board");
+    const handEl = $("hand");
+    const selectedCardText = $("selectedCardText");
+    const deadCardButton = $("deadCardButton");
+    const handHelp = $("handHelp");
+    const lastActionEl = $("lastAction");
+
+    // ---------- Client state ----------
+    let peer = null;
+    let connection = null;
+    let mode = null;              // "host" | "guest"
+    let localPlayerIndex = null;  // 0 | 1
+    let roomId = "";
+    let selectedHandIndex = null;
+    let currentView = null;       // Sanitized view for this player
+    let hostState = null;         // Full authoritative state, host only
+    let actionPending = false;
+
+    // ---------- Utility ----------
+    function safeName(value, fallback) {
+      const cleaned = String(value || "").replace(/[<>]/g, "").trim().slice(0, 24);
+      return cleaned || fallback;
+    }
+
+    function setConnectionStatus(text, state = "") {
+      connectionText.textContent = text;
+      connectionDot.className = "dot" + (state ? ` ${state}` : "");
+    }
+
+    function toast(message, type = "") {
+      const item = document.createElement("div");
+      item.className = "toast" + (type ? ` ${type}` : "");
+      item.textContent = message;
+      $("toastStack").appendChild(item);
+      window.setTimeout(() => item.remove(), 3600);
+    }
+
+    function showGame() {
+      lobbyView.hidden = true;
+      gameView.hidden = false;
+      roomCodeEl.textContent = roomId || "—";
+      newGameButton.hidden = mode !== "host";
+    }
+
+    function resetToLobby() {
+      try { connection?.close(); } catch (_) {}
+      try { peer?.destroy(); } catch (_) {}
+      peer = null;
+      connection = null;
+      mode = null;
+      localPlayerIndex = null;
+      roomId = "";
+      selectedHandIndex = null;
+      currentView = null;
+      hostState = null;
+      actionPending = false;
+      gameView.hidden = true;
+      lobbyView.hidden = false;
+      hostButton.disabled = false;
+      joinButton.disabled = false;
+      setConnectionStatus("Not connected");
+    }
+
+    function randomInt(maxExclusive) {
+      if (maxExclusive <= 0) return 0;
+      if (window.crypto?.getRandomValues) {
+        const range = 0x100000000;
+        const limit = range - (range % maxExclusive);
+        const values = new Uint32Array(1);
+        do { crypto.getRandomValues(values); } while (values[0] >= limit);
+        return values[0] % maxExclusive;
+      }
+      return Math.floor(Math.random() * maxExclusive);
+    }
+
+    function shuffle(array) {
+      const copy = array.slice();
+      for (let i = copy.length - 1; i > 0; i--) {
+        const j = randomInt(i + 1);
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+      }
+      return copy;
+    }
+
+    function cardImageUrl(card) {
+      const rank = card.slice(0, -1);
+      const suit = card.slice(-1);
+      return `${CARD_IMAGE_ROOT}${rank === "10" ? "0" : rank}${suit}.png`;
+    }
+
+    function prettyCard(card) {
+      if (!card) return "—";
+      const suit = card.slice(-1);
+      const rank = card.slice(0, -1);
+      const symbols = { S: "♠", H: "♥", D: "♦", C: "♣" };
+      return `${rank}${symbols[suit] || suit}`;
+    }
+
+    function isRedCard(card) { return card.endsWith("H") || card.endsWith("D"); }
+    function isTwoEyedJack(card) { return card === "JC" || card === "JD"; }
+    function isOneEyedJack(card) { return card === "JH" || card === "JS"; }
+    function isJack(card) { return card?.startsWith("J"); }
+
+    function createDeck() {
+      const oneDeck = [];
+      for (const suit of SUITS) {
+        for (const rank of RANKS) oneDeck.push(rank + suit);
+      }
+      return shuffle([...oneDeck, ...oneDeck]);
+    }
+
+    function playerLabel(index, names = hostState?.names) {
+      return names?.[index] || `Player ${index + 1}`;
+    }
+
+    // ---------- PeerJS setup ----------
+    hostButton.addEventListener("click", startHosting);
+    joinButton.addEventListener("click", joinRoom);
+    joinCodeInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") joinRoom();
+    });
+
+    function ensurePeerJs() {
+      if (typeof window.Peer !== "function") {
+        toast("PeerJS did not load. Check your internet connection or CDN access.", "error");
+        return false;
+      }
+      return true;
+    }
+
+    function startHosting() {
+      if (!ensurePeerJs()) return;
+      mode = "host";
+      localPlayerIndex = 0;
+      hostButton.disabled = true;
+      joinButton.disabled = true;
+      setConnectionStatus("Creating room…", "waiting");
+
+      peer = new Peer(undefined, { debug: 1 });
+      installPeerErrorHandlers();
+
+      peer.on("open", (id) => {
+        roomId = id;
+        showGame();
+        setConnectionStatus("Waiting for opponent", "waiting");
+        turnBanner.textContent = "Share the room code";
+        renderWaitingBoard();
+      });
+
+      peer.on("connection", (incoming) => {
+        if (connection && connection.open) {
+          incoming.on("open", () => incoming.close());
+          return;
+        }
+        connection = incoming;
+        installHostConnectionHandlers(incoming);
+      });
+    }
+
+    function joinRoom() {
+      if (!ensurePeerJs()) return;
+      const target = joinCodeInput.value.trim();
+      if (!target) {
+        toast("Enter the host's room code.", "error");
+        joinCodeInput.focus();
+        return;
+      }
+
+      mode = "guest";
+      localPlayerIndex = 1;
+      roomId = target;
+      hostButton.disabled = true;
+      joinButton.disabled = true;
+      setConnectionStatus("Connecting…", "waiting");
+
+      peer = new Peer(undefined, { debug: 1 });
+      installPeerErrorHandlers();
+
+      peer.on("open", () => {
+        const name = safeName(playerNameInput.value, "Player 2");
+        connection = peer.connect(target, {
+          reliable: true,
+          serialization: "json",
+          metadata: { name }
+        });
+        installGuestConnectionHandlers(connection);
+      });
+    }
+
+    function installPeerErrorHandlers() {
+      peer.on("error", (error) => {
+        console.error(error);
+        setConnectionStatus("Connection error", "error");
+        const readable = {
+          "peer-unavailable": "Room not found. Check the code and confirm the host is still waiting.",
+          "network": "Network error while reaching the PeerJS signaling server.",
+          "server-error": "PeerJS signaling server error.",
+          "unavailable-id": "That room ID is already in use."
+        }[error.type] || `PeerJS error: ${error.type || error.message}`;
+        toast(readable, "error");
+        hostButton.disabled = false;
+        joinButton.disabled = false;
+      });
+
+      peer.on("disconnected", () => {
+        setConnectionStatus("PeerJS disconnected", "error");
+      });
+    }
+
+    function installHostConnectionHandlers(conn) {
+      conn.on("open", () => {
+        const hostName = safeName(playerNameInput.value, "Player 1");
+        const guestName = safeName(conn.metadata?.name, "Player 2");
+        setConnectionStatus(`Connected to ${guestName}`, "online");
+        hostState = createInitialState([hostName, guestName]);
+        selectedHandIndex = null;
+        sendPersonalizedStates();
+        toast(`${guestName} joined the room.`);
+      });
+
+      conn.on("data", (message) => {
+        if (!message || typeof message !== "object") return;
+        if (message.type === "action") processHostAction(1, message.action);
+        if (message.type === "requestState") sendPersonalizedStates();
+      });
+
+      conn.on("close", () => {
+        setConnectionStatus("Opponent disconnected", "error");
+        toast("The opponent disconnected. Refresh or leave to create a new room.", "error");
+      });
+
+      conn.on("error", (error) => {
+        console.error(error);
+        setConnectionStatus("Data connection error", "error");
+        toast("The player-to-player connection failed.", "error");
+      });
+    }
+
+    function installGuestConnectionHandlers(conn) {
+      conn.on("open", () => {
+        showGame();
+        setConnectionStatus("Connected to host", "online");
+      });
+
+      conn.on("data", (message) => {
+        if (!message || typeof message !== "object") return;
+        if (message.type === "state") {
+          actionPending = false;
+          selectedHandIndex = null;
+          currentView = message.state;
+          renderGame(currentView);
+        } else if (message.type === "error") {
+          actionPending = false;
+          renderGame(currentView);
+          toast(message.message || "The host rejected that move.", "error");
+        }
+      });
+
+      conn.on("close", () => {
+        setConnectionStatus("Host disconnected", "error");
+        toast("The host disconnected. This game can no longer continue.", "error");
+      });
+
+      conn.on("error", (error) => {
+        console.error(error);
+        setConnectionStatus("Data connection error", "error");
+        toast("The player-to-player connection failed.", "error");
+      });
+    }
+
+    // ---------- Authoritative host game ----------
+    function createInitialState(names) {
+      const deck = createDeck();
+      const hands = [[], []];
+      for (let i = 0; i < HAND_SIZE; i++) {
+        hands[0].push(deck.pop());
+        hands[1].push(deck.pop());
+      }
+
+      return {
+        board: BOARD_LAYOUT.slice(),
+        chips: Array(100).fill(null),
+        locked: Array(100).fill(false),
+        hands,
+        deck,
+        discard: [],
+        turn: randomInt(2),
+        winner: null,
+        sequenceCounts: [0, 0],
+        exchangeUsed: false,
+        names: names.slice(0, 2),
+        lastAction: "Cards dealt. The first player was chosen randomly.",
+        version: 1
+      };
+    }
+
+    function viewFor(playerIndex) {
+      const opponent = 1 - playerIndex;
+      return {
+        board: hostState.board,
+        chips: hostState.chips,
+        locked: hostState.locked,
+        hand: hostState.hands[playerIndex],
+        opponentHandCount: hostState.hands[opponent].length,
+        deckCount: hostState.deck.length,
+        discardTop: hostState.discard.at(-1) || null,
+        turn: hostState.turn,
+        winner: hostState.winner,
+        sequenceCounts: hostState.sequenceCounts,
+        exchangeUsed: hostState.exchangeUsed,
+        names: hostState.names,
+        lastAction: hostState.lastAction,
+        version: hostState.version,
+        you: playerIndex
+      };
+    }
+
+    function sendPersonalizedStates() {
+      if (!hostState) return;
+      currentView = viewFor(0);
+      renderGame(currentView);
+      if (connection?.open) connection.send({ type: "state", state: viewFor(1) });
+    }
+
+    function rejectGuest(message) {
+      if (connection?.open) connection.send({ type: "error", message });
+      toast(message, "error");
+    }
+
+    function processHostAction(playerIndex, action) {
+      if (!hostState || !action || typeof action !== "object") return;
+      const reject = playerIndex === 1 ? rejectGuest : (message) => toast(message, "error");
+
+      if (hostState.winner !== null) return reject("The game is already over.");
+      if (hostState.turn !== playerIndex) return reject("It is not your turn.");
+      if (action.version !== hostState.version) return reject("The board changed. Please select your card again.");
+
+      const hand = hostState.hands[playerIndex];
+      const handIndex = Number(action.handIndex);
+      if (!Number.isInteger(handIndex) || handIndex < 0 || handIndex >= hand.length) return reject("Invalid card selection.");
+      const card = hand[handIndex];
+
+      if (action.kind === "exchange") {
+        if (hostState.exchangeUsed) return reject("You already exchanged a dead card this turn.");
+        if (!hostState.deck.length) return reject("The draw pile is empty.");
+        const legal = legalTargets(card, playerIndex, hostState);
+        if (legal.length > 0) return reject("That card still has a legal move and is not dead.");
+
+        hostState.discard.push(hand.splice(handIndex, 1)[0]);
+        hand.push(hostState.deck.pop());
+        hostState.exchangeUsed = true;
+        hostState.lastAction = `${playerLabel(playerIndex)} exchanged a dead ${prettyCard(card)} and may still play.`;
+        hostState.version++;
+        sendPersonalizedStates();
+        return;
+      }
+
+      if (action.kind !== "play") return reject("Unknown action.");
+      const boardIndex = Number(action.boardIndex);
+      if (!Number.isInteger(boardIndex) || boardIndex < 0 || boardIndex >= 100) return reject("Invalid board space.");
+
+      const legal = legalTargets(card, playerIndex, hostState);
+      if (!legal.includes(boardIndex)) return reject("That card cannot be played on that space.");
+
+      if (isOneEyedJack(card)) {
+        const removedPlayer = hostState.chips[boardIndex];
+        hostState.chips[boardIndex] = null;
+        hostState.lastAction = `${playerLabel(playerIndex)} used ${prettyCard(card)} to remove ${playerLabel(removedPlayer)}'s chip.`;
+      } else {
+        hostState.chips[boardIndex] = playerIndex;
+        hostState.lastAction = isTwoEyedJack(card)
+          ? `${playerLabel(playerIndex)} used wild ${prettyCard(card)} to place a chip.`
+          : `${playerLabel(playerIndex)} played ${prettyCard(card)}.`;
+      }
+
+      hostState.discard.push(hand.splice(handIndex, 1)[0]);
+      if (hostState.deck.length) hand.push(hostState.deck.pop());
+
+      updateSequenceState();
+      if (hostState.sequenceCounts[playerIndex] >= TARGET_SEQUENCES) {
+        hostState.winner = playerIndex;
+        hostState.lastAction += ` ${playerLabel(playerIndex)} completed two sequences and won!`;
+      } else {
+        hostState.turn = 1 - playerIndex;
+        hostState.exchangeUsed = false;
+      }
+
+      hostState.version++;
+      sendPersonalizedStates();
+    }
+
+    function legalTargets(card, playerIndex, state) {
+      const targets = [];
+      if (!card) return targets;
+
+      for (let i = 0; i < 100; i++) {
+        if (CORNERS.has(i)) continue;
+        const chip = state.chips[i];
+
+        if (isTwoEyedJack(card)) {
+          if (chip === null) targets.push(i);
+        } else if (isOneEyedJack(card)) {
+          if (chip === 1 - playerIndex && !state.locked[i]) targets.push(i);
+        } else if (state.board[i] === card && chip === null) {
+          targets.push(i);
+        }
+      }
+      return targets;
+    }
+
+    function updateSequenceState() {
+      const results = [findSequences(0), findSequences(1)];
+      hostState.sequenceCounts = [results[0].count, results[1].count];
+      hostState.locked = hostState.chips.map((owner, index) =>
+        owner !== null && results[owner].protectedIndices.has(index)
+      );
+    }
+
+    function findSequences(playerIndex) {
+      const directions = [[0,1], [1,0], [1,1], [1,-1]];
+      const protectedIndices = new Set();
+      let count = 0;
+
+      const inBounds = (r, c) => r >= 0 && r < 10 && c >= 0 && c < 10;
+      const owned = (r, c) => {
+        if (!inBounds(r, c)) return false;
+        const index = r * 10 + c;
+        return CORNERS.has(index) || hostState.chips[index] === playerIndex;
+      };
+
+      for (const [dr, dc] of directions) {
+        for (let row = 0; row < 10; row++) {
+          for (let col = 0; col < 10; col++) {
+            if (!owned(row, col)) continue;
+            if (owned(row - dr, col - dc)) continue; // not the start of this run
+
+            const run = [];
+            let r = row;
+            let c = col;
+            while (owned(r, c)) {
+              run.push(r * 10 + c);
+              r += dr;
+              c += dc;
+            }
+
+            if (run.length >= 5) {
+              // Rules allow one shared chip: 5–8 in a straight line = 1 sequence,
+              // 9–10 in a straight line = 2 sequences.
+              count += Math.floor((run.length - 1) / 4);
+              for (const index of run) {
+                if (!CORNERS.has(index) && hostState.chips[index] === playerIndex) {
+                  protectedIndices.add(index);
+                }
+              }
+            }
+          }
+        }
+      }
+      return { count, protectedIndices };
+    }
+
+    // ---------- Rendering ----------
+    function renderWaitingBoard() {
+      boardEl.innerHTML = "";
+      for (let i = 0; i < BOARD_LAYOUT.length; i++) {
+        boardEl.appendChild(createBoardCell(BOARD_LAYOUT[i], i, null, false, false));
+      }
+      handEl.innerHTML = '<div class="empty-hand">Waiting for the second player…</div>';
+      lastActionEl.textContent = "Share the room code with the second player.";
+      $("deckMain").textContent = "Deck: —";
+      $("discardText").textContent = "Discard: —";
+    }
+
+    function renderGame(view) {
+      if (!view) return;
+      currentView = view;
+      roomCodeEl.textContent = roomId || "—";
+
+      const yourTurn = view.turn === view.you && view.winner === null;
+      const winnerName = view.winner !== null ? view.names[view.winner] : null;
+      turnBanner.className = "turn-banner" + (yourTurn ? " yours" : "") + (view.winner !== null ? " winner" : "");
+      turnBanner.textContent = view.winner !== null
+        ? `${winnerName} wins!`
+        : yourTurn ? "Your turn" : `${view.names[view.turn]}'s turn`;
+
+      $("player0Name").textContent = view.names[0] + (view.you === 0 ? " (You)" : "");
+      $("player1Name").textContent = view.names[1] + (view.you === 1 ? " (You)" : "");
+      $("player0Meta").textContent = `${view.sequenceCounts[0]} of ${TARGET_SEQUENCES} sequences`;
+      $("player1Meta").textContent = `${view.sequenceCounts[1]} of ${TARGET_SEQUENCES} sequences`;
+      $("player0Card").style.outline = view.turn === 0 && view.winner === null ? "2px solid rgba(244,201,93,.8)" : "none";
+      $("player1Card").style.outline = view.turn === 1 && view.winner === null ? "2px solid rgba(244,201,93,.8)" : "none";
+      $("deckMain").textContent = `Deck: ${view.deckCount}`;
+      $("discardText").textContent = `Discard: ${prettyCard(view.discardTop)}`;
+      lastActionEl.textContent = view.lastAction;
+
+      if (selectedHandIndex !== null && selectedHandIndex >= view.hand.length) selectedHandIndex = null;
+      renderBoard(view);
+      renderHand(view);
+      updateSelectedCardPanel(view);
+    }
+
+    function renderBoard(view) {
+      const selectedCard = selectedHandIndex === null ? null : view.hand[selectedHandIndex];
+      const canAct = view.turn === view.you && view.winner === null && !actionPending;
+      const legal = canAct && selectedCard ? new Set(legalTargets(selectedCard, view.you, view)) : new Set();
+
+      boardEl.innerHTML = "";
+      for (let i = 0; i < view.board.length; i++) {
+        const cell = createBoardCell(view.board[i], i, view.chips[i], view.locked[i], legal.has(i));
+        if (legal.has(i)) cell.addEventListener("click", () => submitPlay(i));
+        boardEl.appendChild(cell);
+      }
+    }
+
+    function createBoardCell(card, index, chipOwner, locked, legal) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "board-cell";
+      button.setAttribute("aria-label", card === "FREE" ? "Free corner" : prettyCard(card));
+
+      if (card === "FREE") {
+        button.classList.add("free");
+        button.innerHTML = "★<br>FREE";
+      } else {
+        if (isRedCard(card)) button.classList.add("red-card");
+        const img = document.createElement("img");
+        img.src = cardImageUrl(card);
+        img.alt = prettyCard(card);
+        img.loading = "lazy";
+        img.addEventListener("error", () => {
+          img.style.display = "none";
+          fallback.style.display = "grid";
+        }, { once: true });
+        const fallback = document.createElement("span");
+        fallback.className = "card-fallback";
+        fallback.textContent = prettyCard(card);
+        button.append(img, fallback);
+      }
+
+      if (legal) button.classList.add("legal");
+      if (chipOwner !== null && chipOwner !== undefined) {
+        const chip = document.createElement("span");
+        chip.className = `placed-chip p${chipOwner}${locked ? " locked" : ""}`;
+        chip.textContent = chipOwner === 0 ? "B" : "R";
+        chip.title = locked ? "Part of a completed sequence" : "Placed chip";
+        button.appendChild(chip);
+      }
+      return button;
+    }
+
+    function renderHand(view) {
+      handEl.innerHTML = "";
+      const canSelect = view.turn === view.you && view.winner === null && !actionPending;
+
+      if (!view.hand.length) {
+        handEl.innerHTML = '<div class="empty-hand">No cards remain in your hand.</div>';
+        return;
+      }
+
+      view.hand.forEach((card, index) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "hand-card" + (selectedHandIndex === index ? " selected" : "") + (isRedCard(card) ? " red-card" : "");
+        button.disabled = !canSelect;
+        button.setAttribute("aria-label", `Select ${prettyCard(card)}`);
+        button.addEventListener("click", () => {
+          selectedHandIndex = selectedHandIndex === index ? null : index;
+          renderGame(view);
+        });
+
+        const img = document.createElement("img");
+        img.src = cardImageUrl(card);
+        img.alt = prettyCard(card);
+        img.addEventListener("error", () => {
+          img.style.display = "none";
+          fallback.style.display = "grid";
+        }, { once: true });
+        const fallback = document.createElement("span");
+        fallback.className = "card-fallback";
+        fallback.textContent = prettyCard(card);
+        button.append(img, fallback);
+
+        if (isJack(card)) {
+          const badge = document.createElement("span");
+          badge.className = "jack-badge";
+          badge.textContent = isTwoEyedJack(card) ? "WILD PLACE" : "REMOVE CHIP";
+          button.appendChild(badge);
+        }
+        handEl.appendChild(button);
+      });
+
+      handHelp.textContent = canSelect
+        ? "Select a card, then choose a highlighted board space."
+        : view.winner !== null ? "Game over." : "Waiting for the other player.";
+    }
+
+    function updateSelectedCardPanel(view) {
+      deadCardButton.hidden = true;
+      deadCardButton.disabled = false;
+
+      if (selectedHandIndex === null) {
+        selectedCardText.textContent = "Select a card from your hand.";
+        return;
+      }
+
+      const card = view.hand[selectedHandIndex];
+      const targets = legalTargets(card, view.you, view);
+      let explanation = `${prettyCard(card)} — `;
+      if (isTwoEyedJack(card)) explanation += "place a chip on any open card space.";
+      else if (isOneEyedJack(card)) explanation += "remove one unlocked opponent chip.";
+      else explanation += `place on an open ${prettyCard(card)} space.`;
+
+      explanation += targets.length ? ` ${targets.length} legal move${targets.length === 1 ? "" : "s"}.` : " No legal spaces.";
+      selectedCardText.textContent = explanation;
+
+      const yourTurn = view.turn === view.you && view.winner === null;
+      if (yourTurn && targets.length === 0 && !view.exchangeUsed && view.deckCount > 0) {
+        deadCardButton.hidden = false;
+      }
+    }
+
+    // ---------- Local actions ----------
+    function submitPlay(boardIndex) {
+      if (selectedHandIndex === null || !currentView || actionPending) return;
+      submitAction({
+        kind: "play",
+        handIndex: selectedHandIndex,
+        boardIndex,
+        version: currentView.version
+      });
+    }
+
+    deadCardButton.addEventListener("click", () => {
+      if (selectedHandIndex === null || !currentView || actionPending) return;
+      submitAction({
+        kind: "exchange",
+        handIndex: selectedHandIndex,
+        version: currentView.version
+      });
+    });
+
+    function submitAction(action) {
+      actionPending = true;
+      if (mode === "host") {
+        actionPending = false;
+        processHostAction(0, action);
+      } else if (connection?.open) {
+        connection.send({ type: "action", action });
+        renderGame(currentView);
+      } else {
+        actionPending = false;
+        toast("The host is not connected.", "error");
+      }
+    }
+
+    newGameButton.addEventListener("click", () => {
+      if (mode !== "host" || !connection?.open) return;
+      const names = hostState?.names || [safeName(playerNameInput.value, "Player 1"), "Player 2"];
+      hostState = createInitialState(names);
+      selectedHandIndex = null;
+      actionPending = false;
+      sendPersonalizedStates();
+      toast("A new game has started.");
+    });
+
+    copyRoomButton.addEventListener("click", async () => {
+      if (!roomId) return;
+      try {
+        await navigator.clipboard.writeText(roomId);
+        toast("Room code copied.");
+      } catch (_) {
+        window.prompt("Copy this room code:", roomId);
+      }
+    });
+
+    leaveButton.addEventListener("click", resetToLobby);
+    window.addEventListener("beforeunload", () => {
+      try { connection?.close(); } catch (_) {}
+      try { peer?.destroy(); } catch (_) {}
+    });
+  </script>
+</body>
+</html>
