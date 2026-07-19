@@ -745,6 +745,11 @@
       return names?.[index] || `Player ${index + 1}`;
     }
 
+    // ---------- Persist display name on change ----------
+    playerNameInput.addEventListener("input", () => {
+      localStorage.setItem("sequencePlayerName", safeName(playerNameInput.value, "Player"));
+    });
+
     // ---------- PeerJS setup ----------
     hostButton.addEventListener("click", startHosting);
     joinButton.addEventListener("click", joinRoom);
