@@ -475,7 +475,7 @@
         <p class="lobby-copy">One player creates a room and shares its code. The second player opens this same file, enters the code, and joins. The host controls the official game state and validates every move.</p>
 
         <label for="playerName">Your display name</label>
-        <input id="playerName" maxlength="24" value="Player" autocomplete="nickname" />
+        <input id="playerName" maxlength="24" autocomplete="nickname" />
 
         <div class="lobby-grid">
           <div class="lobby-card">
@@ -634,6 +634,9 @@
     const handHelp = $("handHelp");
     const lastActionEl = $("lastAction");
 
+    // ---------- Restore saved name ----------
+    playerNameInput.value = localStorage.getItem("sequencePlayerName") || "Player";
+
     // ---------- Client state ----------
     let peer = null;
     let connection = null;
@@ -762,6 +765,7 @@
 
     function startHosting() {
       if (!ensurePeerJs()) return;
+      localStorage.setItem("sequencePlayerName", safeName(playerNameInput.value, "Player 1"));
       const customCode = hostCodeInput.value.trim();
       if (customCode && !/^\d{1,9}$/.test(customCode)) {
         toast("Custom room code must be 1–9 digits (numbers only).", "error");
@@ -804,6 +808,7 @@
         return;
       }
 
+      localStorage.setItem("sequencePlayerName", safeName(playerNameInput.value, "Player 2"));
       mode = "guest";
       localPlayerIndex = 1;
       roomId = target;
