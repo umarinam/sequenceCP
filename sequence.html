@@ -121,6 +121,7 @@
     .lobby-card p { color: var(--muted); min-height: 42px; font-size: .91rem; line-height: 1.45; }
 
     label { display: block; color: var(--muted); font-size: .8rem; margin: 12px 0 6px; }
+    .label-hint { font-weight: 400; font-size: .76rem; opacity: .75; }
 
     input {
       width: 100%;
@@ -479,6 +480,8 @@
           <div class="lobby-card">
             <h3>Create a room</h3>
             <p>Start PeerJS and wait for one opponent to connect.</p>
+            <label for="hostCode">Custom room code <span class="label-hint">(optional, e.g. 1234)</span></label>
+            <input id="hostCode" placeholder="Leave blank for a random code" maxlength="9" autocomplete="off" autocapitalize="none" spellcheck="false" inputmode="numeric" />
             <button id="hostButton" class="btn primary">Create room</button>
           </div>
           <div class="lobby-card">
@@ -613,6 +616,7 @@
     const gameView = $("gameView");
     const playerNameInput = $("playerName");
     const joinCodeInput = $("joinCode");
+    const hostCodeInput = $("hostCode");
     const hostButton = $("hostButton");
     const joinButton = $("joinButton");
     const connectionDot = $("connectionDot");
@@ -740,6 +744,9 @@
     // ---------- PeerJS setup ----------
     hostButton.addEventListener("click", startHosting);
     joinButton.addEventListener("click", joinRoom);
+    hostCodeInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") startHosting();
+    });
     joinCodeInput.addEventListener("keydown", (event) => {
       if (event.key === "Enter") joinRoom();
     });
@@ -754,13 +761,19 @@
 
     function startHosting() {
       if (!ensurePeerJs()) return;
+      const customCode = hostCodeInput.value.trim();
+      if (customCode && !/^\d{1,9}$/.test(customCode)) {
+        toast("Custom room code must be 1–9 digits (numbers only).", "error");
+        hostCodeInput.focus();
+        return;
+      }
       mode = "host";
       localPlayerIndex = 0;
       hostButton.disabled = true;
       joinButton.disabled = true;
       setConnectionStatus("Creating room…", "waiting");
 
-      peer = new Peer(undefined, { debug: 1 });
+      peer = new Peer(customCode || undefined, { debug: 1 });
       installPeerErrorHandlers();
 
       peer.on("open", (id) => {
