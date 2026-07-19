@@ -165,7 +165,8 @@
 
     #gameView[hidden], #lobbyView[hidden] { display: none !important; }
 
-    .game-shell { display: grid; gap: 12px; }
+    .game-shell { display: grid; gap: 12px; min-width: 0; }
+    .game-shell > * { min-width: 0; }
 
     .game-toolbar {
       display: grid;
